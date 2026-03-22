@@ -1,22 +1,19 @@
 {
   "manifest_version": 3,
   "name": "Recoru",
-  "version": "1.4",
-  "description": "Akor sayfalarında ses kayıtlarınızı saklayın",
-  "permissions": ["activeTab", "storage", "tabs"],
+  "version": "2.0.0",
+  "description": "Akor sitelerinde şarkı çalarken kayıtlarınızı anında, yerel olarak saklayın.",
+  "permissions": ["storage"],
   "host_permissions": [
     "*://www.hakoru.net/*",
     "*://hakoru.net/*",
     "*://www.repertuarim.com/*",
     "*://repertuarim.com/*"
   ],
-  "action": {
-    "default_popup": "popup.html",
-    "default_icon": {
-      "16": "icon16.png",
-      "48": "icon48.png",
-      "128": "icon128.png"
-    }
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
   },
   "content_scripts": [
     {
@@ -26,13 +23,14 @@
         "*://www.repertuarim.com/akor/*",
         "*://repertuarim.com/akor/*"
       ],
-      "js": ["content.js"],
+      "js": ["src/content/index.js", "src/content/ui.js", "src/storage/db.js"],
+      "type": "module",
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["recorder.html"],
+      "resources": ["src/recorder/frame.html", "src/content/style.css"],
       "matches": [
         "*://www.hakoru.net/*",
         "*://hakoru.net/*",
