@@ -131,10 +131,6 @@ window.recoruUI = (() => {
         const li = document.createElement('li');
         li.className = 'recoru-item';
         
-        // Re-wrap Blob enforcing the mimeType saved in DB
-        const finalBlob = new Blob([rec.audioBlob], { type: rec.mimeType || 'audio/webm' });
-        const blobUrl = URL.createObjectURL(finalBlob);
-        
         li.innerHTML = `
           <div class="recoru-item-info">
             <div class="recoru-item-label" title="${escapeHtml(rec.label || 'İsimsiz kayıt')}">${escapeHtml(rec.label || 'İsimsiz kayıt')}</div>
@@ -149,45 +145,65 @@ window.recoruUI = (() => {
         const playBtn = li.querySelector('.play-btn');
         const deleteBtn = li.querySelector('.delete-btn');
 
-        playBtn.addEventListener('click', () => {
-          if (currentPlayBtn && currentPlayBtn !== playBtn) {
-            currentAudio && currentAudio.pause();
-            currentPlayBtn.textContent = '▶';
-            currentPlayBtn.classList.remove('recoru-playing');
-          }
+        playBtn.addEventListener('click', async () => {
+          try {
+            if (currentPlayBtn && currentPlayBtn !== playBtn) {
+              if (currentAudio && currentAudio.state === 'running') {
+                await currentAudio.suspend();
+              }
+              currentPlayBtn.textContent = '▶';
+              currentPlayBtn.classList.remove('recoru-playing');
+            }
 
-          if (currentAudio && !currentAudio.paused && currentPlayBtn === playBtn) {
-            currentAudio.pause();
-            playBtn.textContent = '▶';
-            playBtn.classList.remove('recoru-playing');
-            currentAudio = null;
-            currentPlayBtn = null;
-            return;
-          }
+            if (currentAudio && currentPlayBtn === playBtn) {
+              if (currentAudio.state === 'running') {
+                await currentAudio.suspend();
+                playBtn.textContent = '▶';
+                playBtn.classList.remove('recoru-playing');
+              } else if (currentAudio.state === 'suspended') {
+                await currentAudio.resume();
+                playBtn.textContent = '⏸';
+                playBtn.classList.add('recoru-playing');
+              }
+              return;
+            }
 
-          const audio = new Audio(blobUrl);
-          currentAudio = audio;
-          currentPlayBtn = playBtn;
-          playBtn.textContent = '⏸';
-          playBtn.classList.add('recoru-playing');
-          
-          audio.play().catch(e => {
+            // Start new playback utilizing Web Audio API to bypass strict CSP restrictions
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const arrayBuffer = await rec.audioBlob.arrayBuffer();
+            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            
+            const source = audioCtx.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioCtx.destination);
+            
+            currentAudio = audioCtx;
+            currentPlayBtn = playBtn;
+            playBtn.textContent = '⏸';
+            playBtn.classList.add('recoru-playing');
+            
+            source.onended = () => {
+              playBtn.textContent = '▶';
+              playBtn.classList.remove('recoru-playing');
+              currentAudio.close();
+              if (currentPlayBtn === playBtn) {
+                currentAudio = null;
+                currentPlayBtn = null;
+              }
+            };
+            
+            source.start();
+            
+          } catch (e) {
+            console.error('Audio Playback Error:', e);
             this.showError('Oynatılamadı (Tarayıcı formatı desteklemiyor olabilir)');
             playBtn.textContent = '▶';
             playBtn.classList.remove('recoru-playing');
-          });
-          
-          audio.onended = () => {
-            playBtn.textContent = '▶';
-            playBtn.classList.remove('recoru-playing');
-            currentAudio = null;
-            currentPlayBtn = null;
-          };
+          }
         });
 
         deleteBtn.addEventListener('click', () => {
           callbacks.onDeleteRecord(rec.id);
-          URL.revokeObjectURL(blobUrl);
         });
 
         listEl.appendChild(li);
