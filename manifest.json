@@ -23,8 +23,7 @@
         "*://www.repertuarim.com/akor/*",
         "*://repertuarim.com/akor/*"
       ],
-      "js": ["src/content/index.js", "src/content/ui.js", "src/storage/db.js"],
-      "type": "module",
+      "js": ["src/storage/db.js", "src/content/ui.js", "src/content/index.js"],
       "run_at": "document_idle"
     }
   ],

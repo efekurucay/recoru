@@ -1,5 +1,5 @@
-import { initUI, updateRecordings, setRecordingState, showError } from './ui.js';
-import { initDB, getRecordings, saveRecording, deleteRecording } from '../storage/db.js';
+// src/content/index.js
+// Uses window.recoruDB and window.recoruUI defined by previous scripts
 
 const SITES = {
   'hakoru.net': {
@@ -34,7 +34,6 @@ function parseSong(url) {
 
 const songInfo = parseSong(window.location.href);
 
-// If we are not on a song page, do not inject UI
 if (songInfo) {
   main();
 }
@@ -53,19 +52,18 @@ function ensureRecorderFrame() {
 
 async function loadRecordings() {
   try {
-    const recs = await getRecordings(songInfo.songKey);
-    updateRecordings(recs);
+    const recs = await window.recoruDB.getRecordings(songInfo.songKey);
+    window.recoruUI.updateRecordings(recs);
   } catch (err) {
-    showError('Kayıtlar yüklenirken bir hata oluştu.');
+    window.recoruUI.showError('Kayıtlar yüklenirken bir hata oluştu.');
   }
 }
 
 async function main() {
-  await initDB();
+  await window.recoruDB.initDB();
   ensureRecorderFrame();
   
-  // Inject and mount the UI
-  initUI(songInfo, {
+  window.recoruUI.initUI(songInfo, {
     onStartRecord: () => {
       recorderFrame.contentWindow.postMessage({ type: 'START_RECORDING' }, '*');
     },
@@ -73,43 +71,40 @@ async function main() {
       recorderFrame.contentWindow.postMessage({ type: 'STOP_RECORDING' }, '*');
     },
     onDeleteRecord: async (id) => {
-      if (!confirm('Bu kaydı silmek istiyor musun?')) return;
       try {
-        await deleteRecording(id);
+        await window.recoruDB.deleteRecording(id);
         await loadRecordings();
       } catch {
-        showError('Silinemedi.');
+        window.recoruUI.showError('Silinemedi.');
       }
     }
   });
 
   await loadRecordings();
 
-  // Listen to messages from the hidden iframe
   window.addEventListener('message', async (event) => {
     if (!event.data?.type) return;
     
     switch (event.data.type) {
       case 'RECORDING_STARTED':
-        setRecordingState(true);
+        window.recoruUI.setRecordingState(true);
         break;
       case 'RECORDING_ERROR':
-        setRecordingState(false);
-        showError(event.data.error || 'Mikrofon hatası');
+        window.recoruUI.setRecordingState(false);
+        window.recoruUI.showError(event.data.error || 'Mikrofon hatası');
         break;
       case 'RECORDING_DONE':
-        setRecordingState(false);
+        window.recoruUI.setRecordingState(false);
         try {
           const blob = new Blob([event.data.buffer], { type: event.data.mimeType });
-          // Get the label from the UI input
           const labelInput = document.getElementById('recoru-record-label');
           const label = labelInput ? labelInput.value.trim() : '';
           if (labelInput) labelInput.value = '';
           
-          await saveRecording(songInfo.songKey, blob, label || 'İsimsiz kayıt');
+          await window.recoruDB.saveRecording(songInfo.songKey, blob, label || 'İsimsiz kayıt');
           await loadRecordings();
         } catch (err) {
-          showError('Kayıt kaydedilemedi.');
+          window.recoruUI.showError('Kayıt kaydedilemedi.');
         }
         break;
     }
