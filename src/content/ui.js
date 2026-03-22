@@ -3,6 +3,9 @@ window.recoruUI = (() => {
   let container = null;
   let currentAudio = null;
   let currentPlayBtn = null;
+  let currentProgressBar = null;
+  let currentAudioDuration = 0;
+  let progressAnimId = null;
   let callbacks = {};
   let recTimer = null;
   let recSeconds = 0;
@@ -177,6 +180,9 @@ window.recoruUI = (() => {
               <input type="text" class="recoru-edit-input recoru-hidden" value="${escapeHtml(rec.label || '')}" maxlength="60" />
             </div>
             <div class="recoru-item-date">${formatDate(rec.createdAt)}${formatDuration(rec.duration)}</div>
+            <div class="recoru-progress-container recoru-hidden">
+               <div class="recoru-progress-bar"></div>
+            </div>
           </div>
           <div class="recoru-item-actions">
             <div class="recoru-action-group recoru-main-actions">
@@ -201,6 +207,8 @@ window.recoruUI = (() => {
         const editBtn = li.querySelector('.edit-btn');
         const downloadBtn = li.querySelector('.download-btn');
         const deleteBtn = li.querySelector('.delete-btn');
+        const progContainer = li.querySelector('.recoru-progress-container');
+        const progBar = li.querySelector('.recoru-progress-bar');
         
         const mainActions = li.querySelector('.recoru-main-actions');
         
@@ -275,6 +283,11 @@ window.recoruUI = (() => {
               }
               currentPlayBtn.innerHTML = ICONS.play;
               currentPlayBtn.classList.remove('recoru-playing');
+              if (currentProgressBar) {
+                currentProgressBar.parentElement.classList.add('recoru-hidden');
+                currentProgressBar.style.width = '0%';
+              }
+              cancelAnimationFrame(progressAnimId);
             }
 
             if (currentAudio && currentPlayBtn === playBtn) {
@@ -286,6 +299,16 @@ window.recoruUI = (() => {
                 await currentAudio.resume();
                 playBtn.innerHTML = ICONS.pause;
                 playBtn.classList.add('recoru-playing');
+                
+                const animate = () => {
+                  if (!currentAudio) return;
+                  const pct = Math.min(100, (currentAudio.currentTime / currentAudioDuration) * 100);
+                  currentProgressBar.style.width = pct + '%';
+                  if (pct < 100 && currentAudio.state === 'running') {
+                    progressAnimId = requestAnimationFrame(animate);
+                  }
+                };
+                progressAnimId = requestAnimationFrame(animate);
               }
               return;
             }
@@ -300,16 +323,36 @@ window.recoruUI = (() => {
             
             currentAudio = audioCtx;
             currentPlayBtn = playBtn;
+            currentProgressBar = progBar;
+            currentAudioDuration = audioBuffer.duration;
+            
             playBtn.innerHTML = ICONS.pause;
             playBtn.classList.add('recoru-playing');
+            progContainer.classList.remove('recoru-hidden');
+            progBar.style.width = '0%';
+            
+            const animate = () => {
+              if (!currentAudio) return;
+              const pct = Math.min(100, (currentAudio.currentTime / currentAudioDuration) * 100);
+              currentProgressBar.style.width = pct + '%';
+              if (pct < 100 && currentAudio.state === 'running') {
+                progressAnimId = requestAnimationFrame(animate);
+              }
+            };
+            progressAnimId = requestAnimationFrame(animate);
             
             source.onended = () => {
               playBtn.innerHTML = ICONS.play;
               playBtn.classList.remove('recoru-playing');
+              progContainer.classList.add('recoru-hidden');
+              progBar.style.width = '0%';
               currentAudio.close();
+              
               if (currentPlayBtn === playBtn) {
                 currentAudio = null;
                 currentPlayBtn = null;
+                currentProgressBar = null;
+                cancelAnimationFrame(progressAnimId);
               }
             };
             
