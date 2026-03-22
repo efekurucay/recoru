@@ -22,7 +22,7 @@ function parseSongFromUrl(url) {
     const slug = match[1];
     return {
       songKey: config.prefix + ':' + slug,
-      songTitle: slugToTitle(slug),
+      songTitle: slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
       site: config.name
     };
   } catch {
@@ -30,14 +30,14 @@ function parseSongFromUrl(url) {
   }
 }
 
-function slugToTitle(slug) {
-  return slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-}
-
 function formatDate(iso) {
   const d = new Date(iso);
   return d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' })
     + ' ' + d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // DOM refs
@@ -56,19 +56,20 @@ const btnStop = document.getElementById('btn-stop');
 const errorMsg = document.getElementById('error-msg');
 
 let currentSong = null;
-let isRecording = false;
-let pendingBlob = null;
+let activeTabId = null;
 let currentAudio = null;
 let currentPlayBtn = null;
 
 function showError(msg) {
   errorMsg.textContent = msg;
   errorMsg.classList.remove('hidden');
-  setTimeout(() => errorMsg.classList.add('hidden'), 5000);
+  setTimeout(() => errorMsg.classList.add('hidden'), 6000);
 }
 
-function escapeHtml(str) {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function setRecordingUI(recording) {
+  btnStart.classList.toggle('hidden', recording);
+  btnStop.classList.toggle('hidden', !recording);
+  recordLabel.disabled = recording;
 }
 
 function renderRecordings(recordings) {
@@ -108,7 +109,6 @@ function renderRecordings(recordings) {
         currentPlayBtn.textContent = '▶';
         currentPlayBtn.classList.remove('playing');
       }
-
       if (currentAudio && !currentAudio.paused && currentPlayBtn === playBtn) {
         currentAudio.pause();
         playBtn.textContent = '▶';
@@ -117,7 +117,6 @@ function renderRecordings(recordings) {
         currentPlayBtn = null;
         return;
       }
-
       const audio = new Audio(blobUrl);
       currentAudio = audio;
       currentPlayBtn = playBtn;
@@ -157,28 +156,8 @@ async function loadRecordings() {
   }
 }
 
-function setRecordingUI(recording) {
-  isRecording = recording;
-  btnStart.classList.toggle('hidden', recording);
-  btnStop.classList.toggle('hidden', !recording);
-  recordLabel.disabled = recording;
-}
-
-// Offscreen'den gelen mesajları dinle
+// Content script'ten gelen mesajları al (RECORDING_DONE, vs.)
 chrome.runtime.onMessage.addListener((msg) => {
-  if (msg.type === 'RECORDING_STARTED') {
-    setRecordingUI(true);
-  }
-
-  if (msg.type === 'RECORDING_ERROR') {
-    setRecordingUI(false);
-    if (msg.error && msg.error.includes('NotAllowed')) {
-      showError('Mikrofon izni verilmedi. Chrome ayarlarından eklentiye mikrofon izni ver.');
-    } else {
-      showError('Hata: ' + (msg.error || 'Bilinmeyen hata'));
-    }
-  }
-
   if (msg.type === 'RECORDING_DONE') {
     setRecordingUI(false);
     const blob = new Blob([msg.buffer], { type: msg.mimeType });
@@ -190,17 +169,30 @@ chrome.runtime.onMessage.addListener((msg) => {
   }
 });
 
-btnStart.addEventListener('click', () => {
-  if (!currentSong) return;
-  chrome.runtime.sendMessage({ type: 'START_RECORDING' }, (res) => {
-    if (res && !res.ok) {
-      showError('Kayıt başlatılamadı: ' + (res.error || ''));
+// Kayıt başlat — content script'e mesaj gönder
+btnStart.addEventListener('click', async () => {
+  if (!currentSong || !activeTabId) return;
+  try {
+    const response = await chrome.tabs.sendMessage(activeTabId, { type: 'START_RECORDING' });
+    if (response && response.ok) {
+      setRecordingUI(true);
+    } else {
+      showError(response?.error || 'Kayıt başlatılamadı.');
     }
-  });
+  } catch (err) {
+    showError('Sayfayla iletişim kurulamadı. Sayfayı yenileyin.');
+  }
 });
 
-btnStop.addEventListener('click', () => {
-  chrome.runtime.sendMessage({ type: 'STOP_RECORDING' });
+// Kayıt durdur — content script'e mesaj gönder
+btnStop.addEventListener('click', async () => {
+  if (!activeTabId) return;
+  try {
+    await chrome.tabs.sendMessage(activeTabId, { type: 'STOP_RECORDING' });
+    // setRecordingUI(false) çağrısı RECORDING_DONE mesajı gelince yapılır
+  } catch {
+    setRecordingUI(false);
+  }
 });
 
 async function init() {
@@ -210,9 +202,11 @@ async function init() {
   if (!tab || !tab.url) {
     noSong.classList.remove('hidden');
     recordSection.classList.add('hidden');
+    recordingsSection.classList.add('hidden');
     return;
   }
 
+  activeTabId = tab.id;
   currentSong = parseSongFromUrl(tab.url);
 
   if (!currentSong) {
