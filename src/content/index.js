@@ -85,7 +85,10 @@ async function main() {
       case 'RECORDING_DONE':
         window.recoruUI.setRecordingState(false);
         try {
-          const blob = new Blob([msg.buffer], { type: msg.mimeType });
+          // Convert the base64 data URL back into a Blob
+          const res = await fetch(msg.base64);
+          const blob = await res.blob();
+          
           const labelInput = document.getElementById('recoru-record-label');
           const label = labelInput ? labelInput.value.trim() : '';
           if (labelInput) labelInput.value = '';

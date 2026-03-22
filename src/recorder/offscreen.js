@@ -31,13 +31,17 @@ async function startRecording() {
       if (e.data && e.data.size > 0) audioChunks.push(e.data);
     };
 
-    mediaRecorder.onstop = async () => {
+    mediaRecorder.onstop = () => {
       stream.getTracks().forEach(t => t.stop());
       stream = null;
+      
       const blob = new Blob(audioChunks, { type: mimeType });
-      // Send as ArrayBuffer to avoid cross-context clone errors
-      const buffer = await blob.arrayBuffer();
-      chrome.runtime.sendMessage({ type: 'RECORDING_DONE', buffer, mimeType });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64data = reader.result;
+        chrome.runtime.sendMessage({ type: 'RECORDING_DONE', base64: base64data, mimeType });
+      };
+      reader.readAsDataURL(blob);
     };
 
     mediaRecorder.start();
