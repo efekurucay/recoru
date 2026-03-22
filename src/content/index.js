@@ -38,18 +38,6 @@ if (songInfo) {
   main();
 }
 
-let recorderFrame = null;
-
-function ensureRecorderFrame() {
-  if (recorderFrame) return;
-  const iframe = document.createElement('iframe');
-  iframe.src = chrome.runtime.getURL('src/recorder/frame.html');
-  iframe.allow = 'microphone';
-  iframe.style.cssText = 'position:fixed;width:1px;height:1px;top:-9999px;left:-9999px;border:0;opacity:0;pointer-events:none;';
-  document.documentElement.appendChild(iframe);
-  recorderFrame = iframe;
-}
-
 async function loadRecordings() {
   try {
     const recs = await window.recoruDB.getRecordings(songInfo.songKey);
@@ -61,14 +49,14 @@ async function loadRecordings() {
 
 async function main() {
   await window.recoruDB.initDB();
-  ensureRecorderFrame();
   
   window.recoruUI.initUI(songInfo, {
     onStartRecord: () => {
-      recorderFrame.contentWindow.postMessage({ type: 'START_RECORDING' }, '*');
+      // Send directly to background.js service worker which manages offscreen recording
+      chrome.runtime.sendMessage({ type: 'START_RECORDING' });
     },
     onStopRecord: () => {
-      recorderFrame.contentWindow.postMessage({ type: 'STOP_RECORDING' }, '*');
+      chrome.runtime.sendMessage({ type: 'STOP_RECORDING' });
     },
     onDeleteRecord: async (id) => {
       try {
@@ -82,21 +70,22 @@ async function main() {
 
   await loadRecordings();
 
-  window.addEventListener('message', async (event) => {
-    if (!event.data?.type) return;
+  // Listen to messages from the background service worker
+  chrome.runtime.onMessage.addListener(async (msg) => {
+    if (!msg.type) return;
     
-    switch (event.data.type) {
+    switch (msg.type) {
       case 'RECORDING_STARTED':
         window.recoruUI.setRecordingState(true);
         break;
       case 'RECORDING_ERROR':
         window.recoruUI.setRecordingState(false);
-        window.recoruUI.showError(event.data.error || 'Mikrofon hatası');
+        window.recoruUI.showError(msg.error || 'Mikrofon hatası');
         break;
       case 'RECORDING_DONE':
         window.recoruUI.setRecordingState(false);
         try {
-          const blob = new Blob([event.data.buffer], { type: event.data.mimeType });
+          const blob = new Blob([msg.buffer], { type: msg.mimeType });
           const labelInput = document.getElementById('recoru-record-label');
           const label = labelInput ? labelInput.value.trim() : '';
           if (labelInput) labelInput.value = '';

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Recoru Mikrofon İzni</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #fdfdfd;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      text-align: center;
+      padding: 20px;
+    }
+    h2 { color: #ff6b6b; margin-top: 0; }
+    p { margin-bottom: 24px; font-size: 14px; line-height: 1.5; color: #555; }
+    button {
+      background: #ff6b6b;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover { background: #fa5b5b; }
+    .icon { font-size: 48px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <div class="icon">🎙️</div>
+  <h2>Mikrofon İzni Gerekli</h2>
+  <p>Sayfadan bağımsız güvenli kayıt yapabilmek için,<br>Recoru eklentisine mikrofon izni vermeniz gerekiyor.</p>
+  <button id="btn-allow">Mikrofon İzni Ver</button>
+  <script src="permission.js"></script>
+</body>
+</html>
