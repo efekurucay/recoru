@@ -33,7 +33,10 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["src/content/style.css"],
+      "resources": [
+        "src/content/style.css",
+        "assets/logo.png"
+      ],
       "matches": [
         "*://www.hakoru.net/*",
         "*://hakoru.net/*",

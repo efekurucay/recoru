@@ -60,7 +60,9 @@ window.recoruUI = (() => {
       
       container.innerHTML = `
         <div class="recoru-header" id="recoru-toggle">
-          <div class="recoru-logo">${ICONS.mic}</div>
+          <div class="recoru-logo">
+            <img src="${chrome.runtime.getURL('assets/logo.png')}" alt="Logo" />
+          </div>
           <div class="recoru-title">
             <div class="recoru-site">${escapeHtml(songInfo.site)}</div>
             <div class="recoru-song">${escapeHtml(songInfo.songTitle)}</div>

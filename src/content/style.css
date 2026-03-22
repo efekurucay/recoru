@@ -42,8 +42,23 @@
 }
 
 .recoru-logo {
-  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-right: 12px;
+}
+
+.recoru-logo img {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  object-fit: cover;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  transition: transform 0.2s;
+}
+
+.recoru-header:hover .recoru-logo img {
+  transform: scale(1.05) rotate(-2deg);
 }
 
 .recoru-title {
@@ -112,16 +127,23 @@
 }
 
 /* List items */
+@keyframes recoru-slide-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 .recoru-item {
   display: flex;
   align-items: center;
   padding: 10px 16px;
   border-bottom: 1px solid #f0f0f0;
-  transition: background 0.15s;
+  transition: background 0.2s, transform 0.2s;
+  animation: recoru-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .recoru-item:hover {
   background: #ffffff;
+  transform: translateX(2px);
 }
 
 .recoru-item-info {
