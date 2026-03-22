@@ -25,8 +25,12 @@ async function setupOffscreenDocument(path) {
 
 async function startRecording(tabId) {
   currentTabId = tabId;
-  await setupOffscreenDocument('src/recorder/offscreen.html');
-  chrome.runtime.sendMessage({ type: 'OFFSCREEN_START_RECORDING' });
+  try {
+    await setupOffscreenDocument('src/recorder/offscreen.html');
+    chrome.runtime.sendMessage({ type: 'OFFSCREEN_START_RECORDING' });
+  } catch (err) {
+    chrome.tabs.sendMessage(currentTabId, { type: 'RECORDING_ERROR', error: 'System: ' + err.message });
+  }
 }
 
 async function stopRecording() {

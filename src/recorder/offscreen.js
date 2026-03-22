@@ -50,12 +50,9 @@ async function startRecording() {
   } catch (err) {
     stream = null;
     if (err.name === 'NotAllowedError') {
-      // Permission not granted. We must ask the background to open a popup
-      // so the user can grant permission to the extension itself.
       chrome.runtime.sendMessage({ type: 'OFFSCREEN_NEED_PERMISSION' });
     } else {
-      let msg = 'Mikrofon açılamadı.';
-      if (err.name === 'NotFoundError') msg = 'Mikrofon bulunamadı.';
+      const msg = 'Hata: ' + err.name + ' - ' + err.message;
       chrome.runtime.sendMessage({ type: 'RECORDING_ERROR', error: msg });
     }
   }
