@@ -17,7 +17,7 @@ window.recoruUI = (() => {
     const yy = d.getFullYear();
     const hh = String(d.getHours()).padStart(2, '0');
     const min = String(d.getMinutes()).padStart(2, '0');
-    return \`\${dd}.\${mm}.\${yy} \${hh}:\${min}\`;
+    return `${dd}.${mm}.${yy} ${hh}:${min}`;
   }
 
   function injectStyles() {
@@ -36,12 +36,12 @@ window.recoruUI = (() => {
       container = document.createElement('div');
       container.id = 'recoru-widget';
       
-      container.innerHTML = \`
+      container.innerHTML = `
         <div class="recoru-header" id="recoru-toggle">
           <div class="recoru-logo">🎙️</div>
           <div class="recoru-title">
-            <div class="recoru-site">\${escapeHtml(songInfo.site)}</div>
-            <div class="recoru-song">\${escapeHtml(songInfo.songTitle)}</div>
+            <div class="recoru-site">${escapeHtml(songInfo.site)}</div>
+            <div class="recoru-song">${escapeHtml(songInfo.songTitle)}</div>
           </div>
           <div class="recoru-chevron">▼</div>
         </div>
@@ -64,7 +64,7 @@ window.recoruUI = (() => {
             </button>
           </div>
         </div>
-      \`;
+      `;
 
       document.body.appendChild(container);
 
@@ -113,7 +113,7 @@ window.recoruUI = (() => {
       const countEl = container.querySelector('#recoru-count');
       
       listEl.innerHTML = '';
-      countEl.textContent = \`Kayıtlar (\${recordings.length})\`;
+      countEl.textContent = `Kayıtlar (${recordings.length})`;
       
       if (recordings.length === 0) {
         listEl.innerHTML = '<li class="recoru-empty">Henüz hiç kayıt yok.</li>';
@@ -126,16 +126,16 @@ window.recoruUI = (() => {
         
         const blobUrl = URL.createObjectURL(rec.audioBlob);
         
-        li.innerHTML = \`
+        li.innerHTML = `
           <div class="recoru-item-info">
-            <div class="recoru-item-label" title="\${escapeHtml(rec.label || 'İsimsiz kayıt')}">\${escapeHtml(rec.label || 'İsimsiz kayıt')}</div>
-            <div class="recoru-item-date">\${formatDate(rec.createdAt)}</div>
+            <div class="recoru-item-label" title="${escapeHtml(rec.label || 'İsimsiz kayıt')}">${escapeHtml(rec.label || 'İsimsiz kayıt')}</div>
+            <div class="recoru-item-date">${formatDate(rec.createdAt)}</div>
           </div>
           <div class="recoru-item-actions">
             <button class="recoru-icon-btn play-btn" title="Dinle">▶</button>
             <button class="recoru-icon-btn delete-btn" title="Sil">🗑</button>
           </div>
-        \`;
+        `;
 
         const playBtn = li.querySelector('.play-btn');
         const deleteBtn = li.querySelector('.delete-btn');
