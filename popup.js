@@ -56,7 +56,8 @@ const btnStop = document.getElementById('btn-stop');
 const errorMsg = document.getElementById('error-msg');
 
 let currentSong = null;
-let activeTabId = null;
+let mediaRecorder = null;
+let audioChunks = [];
 let currentAudio = null;
 let currentPlayBtn = null;
 
@@ -74,13 +75,11 @@ function setRecordingUI(recording) {
 
 function renderRecordings(recordings) {
   recordingsList.innerHTML = '';
-
   if (recordings.length === 0) {
     noRecordings.classList.remove('hidden');
     recordingsCount.textContent = 'Kayıtlar';
     return;
   }
-
   noRecordings.classList.add('hidden');
   recordingsCount.textContent = `Kayıtlar (${recordings.length})`;
 
@@ -156,44 +155,66 @@ async function loadRecordings() {
   }
 }
 
-// Content script'ten gelen mesajları al (RECORDING_DONE, vs.)
-chrome.runtime.onMessage.addListener((msg) => {
-  if (msg.type === 'RECORDING_DONE') {
-    setRecordingUI(false);
-    const blob = new Blob([msg.buffer], { type: msg.mimeType });
-    const label = recordLabel.value.trim() || 'İsimsiz kayıt';
-    recordLabel.value = '';
-    saveRecording(currentSong.songKey, blob, label)
-      .then(() => loadRecordings())
-      .catch(() => showError('Kayıt kaydedilemedi.'));
-  }
-});
+async function requestMicPermission() {
+  return new Promise((resolve) => {
+    chrome.permissions.request({ permissions: ['microphone'] }, (granted) => {
+      resolve(granted);
+    });
+  });
+}
 
-// Kayıt başlat — content script'e mesaj gönder
-btnStart.addEventListener('click', async () => {
-  if (!currentSong || !activeTabId) return;
+async function startRecording() {
+  // Önce extension mikrofon iznini kontrol et / iste
+  const granted = await requestMicPermission();
+  if (!granted) {
+    showError('Mikrofon izni verilmedi. Tekrar dene ve "İzin ver" seç.');
+    return;
+  }
+
   try {
-    const response = await chrome.tabs.sendMessage(activeTabId, { type: 'START_RECORDING' });
-    if (response && response.ok) {
-      setRecordingUI(true);
-    } else {
-      showError(response?.error || 'Kayıt başlatılamadı.');
-    }
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioChunks = [];
+
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus'
+      : 'audio/webm';
+
+    mediaRecorder = new MediaRecorder(stream, { mimeType });
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) audioChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(audioChunks, { type: mimeType });
+      const label = recordLabel.value.trim() || 'İsimsiz kayıt';
+      recordLabel.value = '';
+      try {
+        await saveRecording(currentSong.songKey, blob, label);
+        await loadRecordings();
+      } catch {
+        showError('Kayıt kaydedilemedi.');
+      }
+      setRecordingUI(false);
+    };
+
+    mediaRecorder.start();
+    setRecordingUI(true);
   } catch (err) {
-    showError('Sayfayla iletişim kurulamadı. Sayfayı yenileyin.');
-  }
-});
-
-// Kayıt durdur — content script'e mesaj gönder
-btnStop.addEventListener('click', async () => {
-  if (!activeTabId) return;
-  try {
-    await chrome.tabs.sendMessage(activeTabId, { type: 'STOP_RECORDING' });
-    // setRecordingUI(false) çağrısı RECORDING_DONE mesajı gelince yapılır
-  } catch {
     setRecordingUI(false);
+    showError('Mikrofon açılamadı: ' + err.message);
   }
-});
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+}
+
+btnStart.addEventListener('click', startRecording);
+btnStop.addEventListener('click', stopRecording);
 
 async function init() {
   await initDB();
@@ -206,7 +227,6 @@ async function init() {
     return;
   }
 
-  activeTabId = tab.id;
   currentSong = parseSongFromUrl(tab.url);
 
   if (!currentSong) {
