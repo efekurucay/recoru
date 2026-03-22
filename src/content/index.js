@@ -58,6 +58,14 @@ async function main() {
     onStopRecord: () => {
       chrome.runtime.sendMessage({ type: 'STOP_RECORDING' });
     },
+    onRenameRecord: async (id, newLabel) => {
+      try {
+        await window.recoruDB.renameRecording(id, newLabel);
+        await loadRecordings();
+      } catch {
+        window.recoruUI.showError('Yeniden adlandırılamadı.');
+      }
+    },
     onDeleteRecord: async (id) => {
       try {
         await window.recoruDB.deleteRecording(id);

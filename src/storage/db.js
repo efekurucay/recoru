@@ -67,6 +67,25 @@ window.recoruDB = (() => {
       });
     },
 
+    async renameRecording(id, newLabel) {
+      const db = await this.initDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const getReq = store.get(id);
+        
+        getReq.onsuccess = () => {
+          const record = getReq.result;
+          if (!record) return reject(new Error('Kayıt bulunamadı.'));
+          record.label = newLabel;
+          const putReq = store.put(record);
+          putReq.onsuccess = () => resolve();
+          putReq.onerror = (e) => reject(e.target.error);
+        };
+        getReq.onerror = (e) => reject(e.target.error);
+      });
+    },
+
     async deleteRecording(id) {
       const db = await this.initDB();
       return new Promise((resolve, reject) => {

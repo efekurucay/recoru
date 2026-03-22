@@ -4,6 +4,21 @@ window.recoruUI = (() => {
   let currentAudio = null;
   let currentPlayBtn = null;
   let callbacks = {};
+  let recTimer = null;
+  let recSeconds = 0;
+
+  const ICONS = {
+    mic: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="recoru-svg"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>`,
+    play: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" class="recoru-svg" width="16" height="16"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`,
+    pause: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" class="recoru-svg" width="16" height="16"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>`,
+    trash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="recoru-svg" width="16" height="16"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`,
+    download: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="recoru-svg" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>`,
+    edit: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="recoru-svg" width="16" height="16"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>`,
+    check: `<svg viewBox="0 0 24 24" fill="none" stroke="#28a745" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="recoru-svg" width="16" height="16"><polyline points="20 6 9 17 4 12"></polyline></svg>`,
+    x: `<svg viewBox="0 0 24 24" fill="none" stroke="#dc3545" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="recoru-svg" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`,
+    chevronDown: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="recoru-svg" width="20" height="20"><polyline points="6 9 12 15 18 9"></polyline></svg>`,
+    chevronUp: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="recoru-svg" width="20" height="20"><polyline points="18 15 12 9 6 15"></polyline></svg>`,
+  };
 
   function escapeHtml(str) {
     if (!str) return '';
@@ -21,10 +36,10 @@ window.recoruUI = (() => {
   }
 
   function formatDuration(sec) {
-    if (!sec) return '';
+    if (sec === undefined || sec === null) return '';
     const m = Math.floor(sec / 60);
     const s = sec % 60;
-    return `   • ${m}:${s.toString().padStart(2, '0')}`;
+    return `${m}:${s.toString().padStart(2, '0')}`;
   }
 
   function injectStyles() {
@@ -45,15 +60,20 @@ window.recoruUI = (() => {
       
       container.innerHTML = `
         <div class="recoru-header" id="recoru-toggle">
-          <div class="recoru-logo">🎙️</div>
+          <div class="recoru-logo">${ICONS.mic}</div>
           <div class="recoru-title">
             <div class="recoru-site">${escapeHtml(songInfo.site)}</div>
             <div class="recoru-song">${escapeHtml(songInfo.songTitle)}</div>
           </div>
-          <div class="recoru-chevron">▼</div>
+          <div class="recoru-chevron">${ICONS.chevronDown}</div>
         </div>
         
         <div class="recoru-body" id="recoru-body">
+          <div id="recoru-timer-bar" class="recoru-hidden">
+            <div class="recoru-pulse"></div>
+            <span id="recoru-timer-text">0:00</span>
+          </div>
+
           <div class="recoru-list-header">
             <span id="recoru-count">Kayıtlar (0)</span>
           </div>
@@ -79,7 +99,7 @@ window.recoruUI = (() => {
       toggleBtn.addEventListener('click', () => {
         container.classList.toggle('recoru-collapsed');
         const chevron = container.querySelector('.recoru-chevron');
-        chevron.textContent = container.classList.contains('recoru-collapsed') ? '▲' : '▼';
+        chevron.innerHTML = container.classList.contains('recoru-collapsed') ? ICONS.chevronUp : ICONS.chevronDown;
       });
 
       const btnStart = container.querySelector('#recoru-btn-start');
@@ -94,15 +114,29 @@ window.recoruUI = (() => {
       const btnStart = container.querySelector('#recoru-btn-start');
       const btnStop = container.querySelector('#recoru-btn-stop');
       const labelInput = container.querySelector('#recoru-record-label');
+      const timerBar = container.querySelector('#recoru-timer-bar');
+      const timerText = container.querySelector('#recoru-timer-text');
       
       if (isRecording) {
         btnStart.classList.add('recoru-hidden');
         btnStop.classList.remove('recoru-hidden');
         labelInput.disabled = true;
+        timerBar.classList.remove('recoru-hidden');
+        
+        recSeconds = 0;
+        timerText.textContent = '0:00';
+        clearInterval(recTimer);
+        recTimer = setInterval(() => {
+          recSeconds++;
+          timerText.textContent = formatDuration(recSeconds);
+        }, 1000);
+
       } else {
         btnStart.classList.remove('recoru-hidden');
         btnStop.classList.add('recoru-hidden');
         labelInput.disabled = false;
+        timerBar.classList.add('recoru-hidden');
+        clearInterval(recTimer);
       }
     },
 
@@ -131,44 +165,129 @@ window.recoruUI = (() => {
         const li = document.createElement('li');
         li.className = 'recoru-item';
         
+        const finalBlob = new Blob([rec.audioBlob], { type: rec.mimeType || 'audio/webm' });
+        const blobUrl = URL.createObjectURL(finalBlob);
+        
         li.innerHTML = `
           <div class="recoru-item-info">
-            <div class="recoru-item-label" title="${escapeHtml(rec.label || 'İsimsiz kayıt')}">${escapeHtml(rec.label || 'İsimsiz kayıt')}</div>
+            <div class="recoru-item-label-container">
+              <span class="recoru-item-label" title="${escapeHtml(rec.label || 'İsimsiz kayıt')}">${escapeHtml(rec.label || 'İsimsiz kayıt')}</span>
+              <input type="text" class="recoru-edit-input recoru-hidden" value="${escapeHtml(rec.label || '')}" maxlength="60" />
+            </div>
             <div class="recoru-item-date">${formatDate(rec.createdAt)}${formatDuration(rec.duration)}</div>
           </div>
           <div class="recoru-item-actions">
-            <button class="recoru-icon-btn play-btn" title="Dinle">▶</button>
-            <button class="recoru-icon-btn delete-btn" title="Sil">🗑</button>
+            <div class="recoru-action-group recoru-main-actions">
+              <button class="recoru-icon-btn play-btn" title="Dinle">${ICONS.play}</button>
+              <button class="recoru-icon-btn edit-btn" title="Yeniden Adlandır">${ICONS.edit}</button>
+              <button class="recoru-icon-btn download-btn" title="İndir">${ICONS.download}</button>
+              <button class="recoru-icon-btn delete-btn" title="Sil">${ICONS.trash}</button>
+            </div>
+            <div class="recoru-action-group recoru-confirm-delete recoru-hidden">
+              <span class="recoru-confirm-text">Silinsin mi?</span>
+              <button class="recoru-icon-btn confirm-yes-btn" title="Evet">${ICONS.check}</button>
+              <button class="recoru-icon-btn confirm-no-btn" title="Hayır">${ICONS.x}</button>
+            </div>
+            <div class="recoru-action-group recoru-confirm-edit recoru-hidden">
+              <button class="recoru-icon-btn edit-yes-btn" title="Kaydet">${ICONS.check}</button>
+              <button class="recoru-icon-btn edit-no-btn" title="İptal">${ICONS.x}</button>
+            </div>
           </div>
         `;
 
         const playBtn = li.querySelector('.play-btn');
+        const editBtn = li.querySelector('.edit-btn');
+        const downloadBtn = li.querySelector('.download-btn');
         const deleteBtn = li.querySelector('.delete-btn');
+        
+        const mainActions = li.querySelector('.recoru-main-actions');
+        
+        // --- Edit Logic ---
+        const labelText = li.querySelector('.recoru-item-label');
+        const editInput = li.querySelector('.recoru-edit-input');
+        const confirmEditGroup = li.querySelector('.recoru-confirm-edit');
+        const editYes = li.querySelector('.edit-yes-btn');
+        const editNo = li.querySelector('.edit-no-btn');
 
+        const toggleEditMode = (show) => {
+          if (show) {
+            labelText.classList.add('recoru-hidden');
+            editInput.classList.remove('recoru-hidden');
+            mainActions.classList.add('recoru-hidden');
+            confirmEditGroup.classList.remove('recoru-hidden');
+            editInput.focus();
+          } else {
+            labelText.classList.remove('recoru-hidden');
+            editInput.classList.add('recoru-hidden');
+            mainActions.classList.remove('recoru-hidden');
+            confirmEditGroup.classList.add('recoru-hidden');
+          }
+        };
+
+        editBtn.addEventListener('click', () => toggleEditMode(true));
+        editNo.addEventListener('click', () => toggleEditMode(false));
+        editYes.addEventListener('click', () => {
+          const newLabel = editInput.value.trim();
+          if (newLabel && newLabel !== rec.label) {
+            if (callbacks.onRenameRecord) callbacks.onRenameRecord(rec.id, newLabel);
+          }
+          toggleEditMode(false);
+        });
+
+        // --- Delete Confirmation Logic ---
+        const confirmDeleteGroup = li.querySelector('.recoru-confirm-delete');
+        const confirmYes = li.querySelector('.confirm-yes-btn');
+        const confirmNo = li.querySelector('.confirm-no-btn');
+
+        const toggleDeleteMode = (show) => {
+          if (show) {
+            mainActions.classList.add('recoru-hidden');
+            confirmDeleteGroup.classList.remove('recoru-hidden');
+          } else {
+            mainActions.classList.remove('recoru-hidden');
+            confirmDeleteGroup.classList.add('recoru-hidden');
+          }
+        };
+
+        deleteBtn.addEventListener('click', () => toggleDeleteMode(true));
+        confirmNo.addEventListener('click', () => toggleDeleteMode(false));
+        confirmYes.addEventListener('click', () => callbacks.onDeleteRecord(rec.id));
+
+        // --- Download Logic ---
+        downloadBtn.addEventListener('click', () => {
+          const a = document.createElement('a');
+          a.style.display = 'none';
+          a.href = blobUrl;
+          a.download = `${rec.label || 'Kayıt'}.webm`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        });
+
+        // --- Playback Logic ---
         playBtn.addEventListener('click', async () => {
           try {
             if (currentPlayBtn && currentPlayBtn !== playBtn) {
               if (currentAudio && currentAudio.state === 'running') {
                 await currentAudio.suspend();
               }
-              currentPlayBtn.textContent = '▶';
+              currentPlayBtn.innerHTML = ICONS.play;
               currentPlayBtn.classList.remove('recoru-playing');
             }
 
             if (currentAudio && currentPlayBtn === playBtn) {
               if (currentAudio.state === 'running') {
                 await currentAudio.suspend();
-                playBtn.textContent = '▶';
+                playBtn.innerHTML = ICONS.play;
                 playBtn.classList.remove('recoru-playing');
               } else if (currentAudio.state === 'suspended') {
                 await currentAudio.resume();
-                playBtn.textContent = '⏸';
+                playBtn.innerHTML = ICONS.pause;
                 playBtn.classList.add('recoru-playing');
               }
               return;
             }
 
-            // Start new playback utilizing Web Audio API to bypass strict CSP restrictions
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const arrayBuffer = await rec.audioBlob.arrayBuffer();
             const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
@@ -179,11 +298,11 @@ window.recoruUI = (() => {
             
             currentAudio = audioCtx;
             currentPlayBtn = playBtn;
-            playBtn.textContent = '⏸';
+            playBtn.innerHTML = ICONS.pause;
             playBtn.classList.add('recoru-playing');
             
             source.onended = () => {
-              playBtn.textContent = '▶';
+              playBtn.innerHTML = ICONS.play;
               playBtn.classList.remove('recoru-playing');
               currentAudio.close();
               if (currentPlayBtn === playBtn) {
@@ -193,17 +312,12 @@ window.recoruUI = (() => {
             };
             
             source.start();
-            
           } catch (e) {
             console.error('Audio Playback Error:', e);
-            this.showError('Oynatılamadı (Tarayıcı formatı desteklemiyor olabilir)');
-            playBtn.textContent = '▶';
+            this.showError('Oynatılamadı (Tarayıcı format desteklemiyor)');
+            playBtn.innerHTML = ICONS.play;
             playBtn.classList.remove('recoru-playing');
           }
-        });
-
-        deleteBtn.addEventListener('click', () => {
-          callbacks.onDeleteRecord(rec.id);
         });
 
         listEl.appendChild(li);
