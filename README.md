@@ -3,7 +3,7 @@
   
   # Recoru
   
-  **Akor Siteleri İçin Yerel Ses Kaydediciniz**
+  **A Local Audio Recorder for Chord Websites**
   
   [![Chrome Web Store](https://img.shields.io/badge/Chrome_Web_Store-Available-blue?logo=googlechrome)](https://chrome.google.com/webstore/detail/YOUR_EXTENSION_ID)
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -11,62 +11,68 @@
 
 ---
 
-**Recoru**, hakoru.net ve repertuarim.com gibi akor sitelerinde sörf yaparken çaldığınız şarkıları anında kaydedip, tarayıcınızda güvence altında tutan, açık kaynak kodlu (Open Source) bir Chrome eklentisidir.
+**Recoru** is an open-source Chrome extension that allows musicians and guitarists to instantly record, organize, and playback their audio directly within supported chord websites (like hakoru.net and repertuarim.com).
 
-Hiçbir sunucuya bağlanmaz; tüm ses kayıtlarınız %100 yerel olarak cihazınızda (IndexedDB ile) saklanır. Gizliliğe tam saygı duyar!
+It features a strict privacy-first architecture: no servers involved, no cloud telemetry. All audio tracks are securely stored completely offline in your browser's IndexedDB.
 
-## ✨ Özellikler
+## Features
 
-- **🎸 Otomatik Şarkı Tespiti:** Desteklenen akor sitelerinde çaldığınız şarkının adını ve sanatçısını otomatik olarak algılar.
-- **🎙️ Tek Tıkla Kayıt:** Gelişmiş sekme içi mikrofon izni mimarisi (*Manifest V3 uyumlu*) sayesinde popup üzerinden anında kayıt alın.
-- **📁 Yerel Depolama (Offline-First):** Kayıtlarınız `audio/webm;codecs=opus` formatında IndexedDB üzerinde tutulur. Buluta hiçbir şey gönderilmez.
-- **🎧 Hızlı Dinleme:** Eskiden o şarkı için aldığınız tüm kayıtları listeleyin, anlık dinleyin ve yönetin.
-- **🌙 Şık Koyu Tema:** Müzisyen dostu, göz yormayan modern arayüz (UI).
+- **Automated Metadata Extraction:** Automatically detects the song name and artist from the supported chord website.
+- **Inline Recording Dashboard:** Injects a clean, non-intrusive widget on the bottom right of the page instead of relying on popups, keeping chords perfectly readable while recording.
+- **Robust Audio Capture:** Leverages Manifest V3's `chrome.offscreen` API for highly reliable background audio capture that bypasses strict Content-Security-Policy (CSP) headers without disrupting the active page.
+- **Offline Storage:** Recordings are compressed and securely saved in IndexedDB as Opus WebM files.
+- **Audio Organization:** Easily rename recordings, monitor durations, and download tracks as `.webm` files immediately.
+- **Modern User Interface:** Sleek, lightweight, dashboard-style design utilizing standard scalable vector graphics (SVGs).
 
-## 🚀 Desteklenen Siteler
+## Supported Platforms
 
-| Platform | URL Formatı |
+| Platform | URL Format |
 |----------|-------------|
-| [Hakoru](https://www.hakoru.net) | `/akor/{sarki-ismi}` |
-| [Repertuarım](https://www.repertuarim.com) | `/akor/{sarki-ismi}-akor-{id}.html` |
+| [Hakoru](https://www.hakoru.net) | `/akor/{song-slug}` |
+| [Repertuarım](https://www.repertuarim.com) | `/akor/{song-slug}-akor-{id}.html` |
 
-*Daha fazla sitenin eklenmesi için Issue açabilirsiniz!*
+*More websites are constantly being evaluated. Feel free to open an issue to request support for your favorite chord platform.*
 
-## 🛠️ Nasıl Kurulur? (Geliştirici Sürümü)
+## Installation (Developer Mode)
 
-Eklentiyi Chrome Web Store'dan indirmek yerine kaynağını indirip kurmak isterseniz:
+To install Recoru from the source instead of the Chrome Web Store:
 
-1. Bu repository'i indirin veya clone'layın: `git clone https://github.com/KULLANICI_ADINIZ/recoru.git`
-2. Chrome tarayıcınızı açın ve adres çubuğuna şunu yazın: `chrome://extensions/`
-3. Sağ üst köşeden **"Geliştirici Modu" (Developer Mode)** anahtarını açın.
-4. Sol üstteki **"Paketlenmemiş öğe yükle" (Load unpacked)** butonuna tıklayın.
-5. Klasör seçici penceresinden indirdiğiniz `recoru` klasörünü seçin.
+1. Clone this repository: `git clone https://github.com/YOUR_USERNAME/recoru.git`
+2. Open Chrome and navigate to: `chrome://extensions/`
+3. Toggle the **Developer Mode** switch in the top right corner.
+4. Click the **Load unpacked** button.
+5. Select the cloned `recoru` repository folder.
 
-Kurulum tamam! Sağ üstteki eklentiler ikonuna (yapboz parçası) tıklayıp Recoru'yu sabitleyebilirsiniz. 📌
+## Development
 
-## 💻 Geliştirme (Development)
+Recoru is built entirely with Vanilla JavaScript, HTML, and CSS. To maintain simplicity and peak performance, it relies on zero external dependencies or bundlers. 
 
-Proje Vanilla JavaScript, HTML ve CSS ile herhangi bir framework/build aracı olmadan (Sıfır bağımlılık) yazılmıştır. Manifest V3 gereksinimleri (örneğin iframe injection ile `getUserMedia` izinleri) doğrultusunda özel bir mimariyle tasarlanmıştır.
+### Architecture
 
-### Klasör Yapısı
 ```
 recoru/
-├── manifest.json       # Eklentinin kalbi
-├── popup.html/css/js   # Eklenti arayüzü ve kayıt dinleme mantığı
-├── content.js          # Sayfa içi URL parse & Mikrofon iframe köprüsü
-├── recorder.html/js    # Mikrofon izinlerini extension context'te alan gizli iframe
-├── db.js               # IndexedDB veritabanı wrapper'i
-└── assets/             # İkonlar ve resimler
+├── manifest.json       # V3 Configuration
+├── src/
+│   ├── background/     # Service worker routing and offscreen manager
+│   ├── content/        # UI injection and message proxy
+│   ├── recorder/       # Offscreen audio capture and permission fallback
+│   └── storage/        # IndexedDB state management
+├── assets/             # Extension icons and promotional banners
+└── scripts/            # Bash utilities for automated Zip packaging
 ```
 
-### Katkıda Bulunma (Contributing)
+### Building for Production
 
-Katkılarınızı sabırsızlıkla bekliyoruz! PR (Pull Request) veya Issue açarak projeye destek olabilirsiniz. Lütfen PR açmadan önce kodunuzu test etmeyi ve Manifest V3 kurallarına uyduğundan emin olmayı unutmayın.
+To package the extension into a zip file for the Chrome Web Store:
+```bash
+bash scripts/build.sh
+```
+This script will construct a trimmed down `recoru_release.zip` file excluding all unnecessary internal development files.
 
-## 📄 Gizlilik Politikası (Privacy Policy)
+## Privacy Policy
 
-Recoru, %100 çevrimdışı çalışır. Mikrofonunuz **yalnızca siz kayıt düğmesine bastığınızda** etkinleşir. Kaydedilen ses dosyaları sadece tarayıcınızın kendi güvenli veritabanına (IndexedDB) yazılır ve dışarı bir ağa / veri tabanına asla aktarılmaz. Recoru analitik veya kullanıcı verisi toplamaz. Ek bilgi için: [Privacy Policy (EN)](privacy.html)
+Recoru operates 100% offline. The microphone is accessed exclusively when manually initiated via the start recording button. All data generated is written directly to the host browser's local sandbox environment (IndexedDB). No audio files, metadata, telemetry, or analytics are collected, transmitted, or stored externally.
 
-## 📜 Lisans
+## License
 
-Bu proje [MIT](LICENSE) lisansı altında lisanslanmıştır. Dilediğiniz gibi çatallayıp kendi projelerinizde kullanabilirsiniz.
+This project is licensed under the [MIT](LICENSE) License.

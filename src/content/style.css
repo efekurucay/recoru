@@ -282,6 +282,94 @@
   text-align: center;
 }
 
+/* SVGs */
+.recoru-svg {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Timer Bar */
+#recoru-timer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  background: #fff5f5;
+  border-bottom: 1px solid #ffcccc;
+  color: #ff4757;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.recoru-pulse {
+  width: 10px;
+  height: 10px;
+  background: #ff4757;
+  border-radius: 50%;
+  animation: recoru-timer-pulse 1s infinite alternate;
+}
+
+@keyframes recoru-timer-pulse {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0.4; transform: scale(0.8); }
+}
+
+/* Edit & Action Groups */
+.recoru-item-label-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.recoru-edit-input {
+  width: 100%;
+  padding: 4px 6px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid #ff6b6b;
+  border-radius: 4px;
+  outline: none;
+  font-family: inherit;
+  color: #333;
+  margin-bottom: 2px;
+}
+
+.recoru-action-group {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.recoru-confirm-text {
+  font-size: 11px;
+  color: #ff4757;
+  font-weight: 600;
+}
+
+.recoru-icon-btn.edit-yes-btn,
+.recoru-icon-btn.confirm-yes-btn {
+  border-color: #28a745;
+  background: #f2fdf4;
+}
+
+.recoru-icon-btn.edit-yes-btn:hover,
+.recoru-icon-btn.confirm-yes-btn:hover {
+  background: #28a745;
+  color: white;
+}
+
+.recoru-icon-btn.edit-no-btn,
+.recoru-icon-btn.confirm-no-btn {
+  border-color: #dc3545;
+  background: #fff5f6;
+}
+
+.recoru-icon-btn.edit-no-btn:hover,
+.recoru-icon-btn.confirm-no-btn:hover {
+  background: #dc3545;
+  color: white;
+}
+
 /* Utils */
 .recoru-hidden {
   display: none !important;
