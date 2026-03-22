@@ -175,18 +175,25 @@
 
 .recoru-progress-container {
   width: 100%;
-  height: 4px;
+  height: 6px;
   background: #f0f0f0;
-  border-radius: 2px;
-  margin-top: 6px;
+  border-radius: 3px;
+  margin-top: 8px;
   overflow: hidden;
+  cursor: pointer;
+  position: relative;
+  transition: height 0.2s;
+}
+
+.recoru-progress-container:hover {
+  height: 8px;
 }
 
 .recoru-progress-bar {
   height: 100%;
   width: 0%;
   background: #ff6b6b;
-  border-radius: 2px;
+  border-radius: 3px;
   transition: width 0.1s linear;
 }
 

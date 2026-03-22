@@ -2,6 +2,10 @@
 window.recoruUI = (() => {
   let container = null;
   let currentAudio = null;
+  let currentSource = null;
+  let currentBuffer = null;
+  let currentOffset = 0;
+  let lastStartTime = 0;
   let currentPlayBtn = null;
   let currentProgressBar = null;
   let currentAudioDuration = 0;
@@ -274,94 +278,134 @@ window.recoruUI = (() => {
           document.body.removeChild(a);
         });
 
-        // --- Playback Logic ---
+        // --- Playback Logic Hub ---
+        const resetPlaybackUI = () => {
+          playBtn.innerHTML = ICONS.play;
+          playBtn.classList.remove('recoru-playing');
+          progContainer.classList.add('recoru-hidden');
+          progBar.style.width = '0%';
+        };
+
+        const stopCurrentSource = () => {
+          if (currentSource) {
+            currentSource.onended = null; 
+            try { currentSource.stop(); } catch(e) {}
+            currentSource = null;
+          }
+          cancelAnimationFrame(progressAnimId);
+        };
+
+        const startSourceAt = (offset) => {
+          stopCurrentSource();
+          
+          const source = currentAudio.createBufferSource();
+          source.buffer = currentBuffer;
+          source.connect(currentAudio.destination);
+          
+          currentSource = source;
+          currentOffset = offset;
+          lastStartTime = currentAudio.currentTime;
+          
+          source.onended = () => {
+            if (currentPlayBtn === playBtn) {
+              currentOffset = 0;
+              resetPlaybackUI();
+              stopCurrentSource();
+            }
+          };
+
+          source.start(0, offset);
+          
+          const animate = () => {
+            if (!currentAudio || currentAudio.state !== 'running') return;
+            const elapsed = currentAudio.currentTime - lastStartTime;
+            const totalElapsed = currentOffset + elapsed;
+            const pct = Math.min(100, (totalElapsed / currentAudioDuration) * 100);
+            progBar.style.width = pct + '%';
+            if (pct < 100) {
+              progressAnimId = requestAnimationFrame(animate);
+            }
+          };
+          progressAnimId = requestAnimationFrame(animate);
+        };
+
+        progContainer.addEventListener('click', (e) => {
+          if (!currentBuffer || currentPlayBtn !== playBtn) return;
+          
+          const rect = progContainer.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const pct = Math.max(0, Math.min(1, x / rect.width));
+          const newOffset = pct * currentAudioDuration;
+          
+          if (currentAudio.state === 'suspended') {
+            currentAudio.resume().then(() => {
+              startSourceAt(newOffset);
+              playBtn.innerHTML = ICONS.pause;
+              playBtn.classList.add('recoru-playing');
+            });
+          } else {
+            startSourceAt(newOffset);
+          }
+        });
+
         playBtn.addEventListener('click', async () => {
           try {
+            // 1. If clicking a DIFFERENT play button
             if (currentPlayBtn && currentPlayBtn !== playBtn) {
-              if (currentAudio && currentAudio.state === 'running') {
-                await currentAudio.suspend();
+              if (currentAudio) {
+                stopCurrentSource();
+                await currentAudio.close();
               }
-              currentPlayBtn.innerHTML = ICONS.play;
-              currentPlayBtn.classList.remove('recoru-playing');
-              if (currentProgressBar) {
-                currentProgressBar.parentElement.classList.add('recoru-hidden');
-                currentProgressBar.style.width = '0%';
+              // Reset the other button's UI if still in DOM
+              if (document.body.contains(currentPlayBtn)) {
+                currentPlayBtn.innerHTML = ICONS.play;
+                currentPlayBtn.classList.remove('recoru-playing');
+                currentPlayBtn.closest('.recoru-item').querySelector('.recoru-progress-container').classList.add('recoru-hidden');
               }
-              cancelAnimationFrame(progressAnimId);
+              currentAudio = null;
+              currentBuffer = null;
             }
 
+            // 2. Play / Pause toggle for CURRENT session
             if (currentAudio && currentPlayBtn === playBtn) {
               if (currentAudio.state === 'running') {
+                // Pause: Suspend context and stop the source to preserve position
                 await currentAudio.suspend();
+                const elapsedSinceStart = currentAudio.currentTime - lastStartTime;
+                currentOffset += elapsedSinceStart;
+                stopCurrentSource();
+                
                 playBtn.innerHTML = ICONS.play;
                 playBtn.classList.remove('recoru-playing');
-              } else if (currentAudio.state === 'suspended') {
+              } else {
+                // Resume: Re-create source from currentOffset
                 await currentAudio.resume();
+                startSourceAt(currentOffset);
                 playBtn.innerHTML = ICONS.pause;
                 playBtn.classList.add('recoru-playing');
-                
-                const animate = () => {
-                  if (!currentAudio) return;
-                  const pct = Math.min(100, (currentAudio.currentTime / currentAudioDuration) * 100);
-                  currentProgressBar.style.width = pct + '%';
-                  if (pct < 100 && currentAudio.state === 'running') {
-                    progressAnimId = requestAnimationFrame(animate);
-                  }
-                };
-                progressAnimId = requestAnimationFrame(animate);
               }
               return;
             }
 
+            // 3. New Playback Session
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const arrayBuffer = await rec.audioBlob.arrayBuffer();
-            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-            
-            const source = audioCtx.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(audioCtx.destination);
-            
+            currentBuffer = await audioCtx.decodeAudioData(arrayBuffer);
             currentAudio = audioCtx;
+            currentAudioDuration = currentBuffer.duration;
             currentPlayBtn = playBtn;
             currentProgressBar = progBar;
-            currentAudioDuration = audioBuffer.duration;
             
+            progContainer.classList.remove('recoru-hidden');
             playBtn.innerHTML = ICONS.pause;
             playBtn.classList.add('recoru-playing');
-            progContainer.classList.remove('recoru-hidden');
-            progBar.style.width = '0%';
             
-            const animate = () => {
-              if (!currentAudio) return;
-              const pct = Math.min(100, (currentAudio.currentTime / currentAudioDuration) * 100);
-              currentProgressBar.style.width = pct + '%';
-              if (pct < 100 && currentAudio.state === 'running') {
-                progressAnimId = requestAnimationFrame(animate);
-              }
-            };
-            progressAnimId = requestAnimationFrame(animate);
-            
-            source.onended = () => {
-              playBtn.innerHTML = ICONS.play;
-              playBtn.classList.remove('recoru-playing');
-              progContainer.classList.add('recoru-hidden');
-              progBar.style.width = '0%';
-              currentAudio.close();
-              
-              if (currentPlayBtn === playBtn) {
-                currentAudio = null;
-                currentPlayBtn = null;
-                currentProgressBar = null;
-                cancelAnimationFrame(progressAnimId);
-              }
-            };
-            
-            source.start();
+            startSourceAt(0);
+
           } catch (e) {
-            console.error('Audio Playback Error:', e);
-            this.showError('Oynatılamadı (Tarayıcı format desteklemiyor)');
-            playBtn.innerHTML = ICONS.play;
-            playBtn.classList.remove('recoru-playing');
+            console.error('Playback Error:', e);
+            this.showError('Başlatılamadı.');
+            resetPlaybackUI();
           }
         });
 
