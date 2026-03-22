@@ -20,6 +20,13 @@ window.recoruUI = (() => {
     return `${dd}.${mm}.${yy} ${hh}:${min}`;
   }
 
+  function formatDuration(sec) {
+    if (!sec) return '';
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `   • ${m}:${s.toString().padStart(2, '0')}`;
+  }
+
   function injectStyles() {
     const link = document.createElement('link');
     link.setAttribute('rel', 'stylesheet');
@@ -124,12 +131,14 @@ window.recoruUI = (() => {
         const li = document.createElement('li');
         li.className = 'recoru-item';
         
-        const blobUrl = URL.createObjectURL(rec.audioBlob);
+        // Re-wrap Blob enforcing the mimeType saved in DB
+        const finalBlob = new Blob([rec.audioBlob], { type: rec.mimeType || 'audio/webm' });
+        const blobUrl = URL.createObjectURL(finalBlob);
         
         li.innerHTML = `
           <div class="recoru-item-info">
             <div class="recoru-item-label" title="${escapeHtml(rec.label || 'İsimsiz kayıt')}">${escapeHtml(rec.label || 'İsimsiz kayıt')}</div>
-            <div class="recoru-item-date">${formatDate(rec.createdAt)}</div>
+            <div class="recoru-item-date">${formatDate(rec.createdAt)}${formatDuration(rec.duration)}</div>
           </div>
           <div class="recoru-item-actions">
             <button class="recoru-icon-btn play-btn" title="Dinle">▶</button>

@@ -85,7 +85,6 @@ async function main() {
       case 'RECORDING_DONE':
         window.recoruUI.setRecordingState(false);
         try {
-          // Convert the base64 data URL back into a Blob
           const res = await fetch(msg.base64);
           const blob = await res.blob();
           
@@ -93,7 +92,13 @@ async function main() {
           const label = labelInput ? labelInput.value.trim() : '';
           if (labelInput) labelInput.value = '';
           
-          await window.recoruDB.saveRecording(songInfo.songKey, blob, label || 'İsimsiz kayıt');
+          await window.recoruDB.saveRecording(
+            songInfo.songKey, 
+            blob, 
+            label || 'İsimsiz kayıt',
+            msg.mimeType,
+            msg.duration
+          );
           await loadRecordings();
         } catch (err) {
           window.recoruUI.showError('Kayıt kaydedilemedi.');

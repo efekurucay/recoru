@@ -27,6 +27,11 @@ async function startRecording() {
 
     mediaRecorder = new MediaRecorder(stream, { mimeType });
 
+    let startTime = Date.now();
+    mediaRecorder.onstart = () => {
+      startTime = Date.now();
+    };
+
     mediaRecorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) audioChunks.push(e.data);
     };
@@ -35,11 +40,18 @@ async function startRecording() {
       stream.getTracks().forEach(t => t.stop());
       stream = null;
       
+      const durationSec = Math.max(1, Math.floor((Date.now() - startTime) / 1000));
+      
       const blob = new Blob(audioChunks, { type: mimeType });
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64data = reader.result;
-        chrome.runtime.sendMessage({ type: 'RECORDING_DONE', base64: base64data, mimeType });
+        chrome.runtime.sendMessage({ 
+          type: 'RECORDING_DONE', 
+          base64: base64data, 
+          mimeType,
+          duration: durationSec
+        });
       };
       reader.readAsDataURL(blob);
     };
