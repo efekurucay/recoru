@@ -1,6 +1,5 @@
-// content.js — Sayfa context'inde çalışır
-// 1. URL parse → şarkı bilgisini saklar
-// 2. Kayıt komutlarını dinler, getUserMedia burada çalışır
+// content.js — Sayfa üzerine gizli iframe inject eder
+// iframe extension origin'den yüklenir → getUserMedia oradan çalışır
 
 const SITES = {
   'hakoru.net': {
@@ -35,73 +34,70 @@ function parseSong(url) {
 
 const songInfo = parseSong(window.location.href);
 
-// Kayıt durumu
-let mediaRecorder = null;
-let audioChunks = [];
-let stream = null;
+// Gizli iframe oluştur
+let recorderFrame = null;
+let frameReady = false;
 
+function ensureFrame() {
+  if (recorderFrame) return;
+
+  const iframe = document.createElement('iframe');
+  iframe.src = chrome.runtime.getURL('recorder.html');
+  iframe.allow = 'microphone';
+  iframe.style.cssText = 'position:fixed;width:1px;height:1px;top:-9999px;left:-9999px;border:0;opacity:0;pointer-events:none;';
+  iframe.id = 'recoru-frame';
+  document.documentElement.appendChild(iframe);
+  recorderFrame = iframe;
+
+  iframe.onload = () => {
+    frameReady = true;
+  };
+}
+
+// iframe'den gelen postMessage'ları chrome.runtime'a ilet
+window.addEventListener('message', (event) => {
+  if (!event.data?.type) return;
+  const t = event.data.type;
+  if (t === 'RECORDING_STARTED' || t === 'RECORDING_DONE' || t === 'RECORDING_ERROR') {
+    chrome.runtime.sendMessage(event.data);
+  }
+});
+
+// popup.js'den gelen mesajları dinle
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'GET_SONG') {
     sendResponse(songInfo || null);
     return true;
   }
 
-  if (msg.type === 'START_RECORDING') {
-    startRecording(sendResponse);
-    return true; // async
-  }
+  if (msg.type === 'START_RECORDING' || msg.type === 'STOP_RECORDING') {
+    ensureFrame();
 
-  if (msg.type === 'STOP_RECORDING') {
-    stopRecording();
-    sendResponse({ ok: true });
-    return true;
+    const send = () => {
+      recorderFrame.contentWindow.postMessage({ type: msg.type }, '*');
+      sendResponse({ ok: true });
+    };
+
+    if (frameReady) {
+      send();
+    } else {
+      // iframe henüz yüklenmediyse kısa süre bekle
+      const check = setInterval(() => {
+        if (frameReady) {
+          clearInterval(check);
+          send();
+        }
+      }, 50);
+      setTimeout(() => {
+        clearInterval(check);
+        sendResponse({ ok: false, error: 'Kayıt bileşeni yüklenemedi.' });
+      }, 3000);
+    }
+    return true; // async
   }
 });
 
-async function startRecording(sendResponse) {
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    audioChunks = [];
-
-    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-      ? 'audio/webm;codecs=opus'
-      : 'audio/webm';
-
-    mediaRecorder = new MediaRecorder(stream, { mimeType });
-
-    mediaRecorder.ondataavailable = (e) => {
-      if (e.data && e.data.size > 0) audioChunks.push(e.data);
-    };
-
-    mediaRecorder.onstop = async () => {
-      stream.getTracks().forEach(t => t.stop());
-      stream = null;
-      const blob = new Blob(audioChunks, { type: mimeType });
-      const buffer = await blob.arrayBuffer();
-      // ArrayBuffer popup'a iletilebilir (Blob iletilemez)
-      chrome.runtime.sendMessage({
-        type: 'RECORDING_DONE',
-        buffer,
-        mimeType
-      });
-    };
-
-    mediaRecorder.start();
-    sendResponse({ ok: true });
-  } catch (err) {
-    stream = null;
-    let errorMsg = 'Mikrofon açılamadı.';
-    if (err.name === 'NotAllowedError') {
-      errorMsg = 'Mikrofon izni verilmedi. Adres çubuğundaki kilit ikonuna tıklayarak izin ver.';
-    } else if (err.name === 'NotFoundError') {
-      errorMsg = 'Mikrofon bulunamadı. Cihazını kontrol et.';
-    }
-    sendResponse({ ok: false, error: errorMsg });
-  }
-}
-
-function stopRecording() {
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-    mediaRecorder.stop();
-  }
+// Sayfa yüklenince frame'i başlat
+if (songInfo) {
+  ensureFrame();
 }

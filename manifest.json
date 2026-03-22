@@ -1,10 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Recoru",
-  "version": "1.3",
+  "version": "1.4",
   "description": "Akor sayfalarında ses kayıtlarınızı saklayın",
   "permissions": ["activeTab", "storage", "tabs"],
-  "optional_permissions": ["microphone"],
   "host_permissions": [
     "*://www.hakoru.net/*",
     "*://hakoru.net/*",
@@ -29,6 +28,17 @@
       ],
       "js": ["content.js"],
       "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["recorder.html"],
+      "matches": [
+        "*://www.hakoru.net/*",
+        "*://hakoru.net/*",
+        "*://www.repertuarim.com/*",
+        "*://repertuarim.com/*"
+      ]
     }
   ]
 }
